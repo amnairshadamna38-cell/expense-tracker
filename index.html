@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Expense Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDKs (v9 Compat Mode) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans p-4 md:p-8">
+
+  <div class="max-w-4xl mx-auto space-y-6">
+    
+    <!-- Header -->
+    <div class="bg-indigo-600 text-white p-6 rounded-2xl shadow-lg flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <i class="fa-solid fa-wallet"></i> Personal Expense Tracker
+        </h1>
+        <p class="text-indigo-100 text-sm mt-1">Manage and track your daily spending with Firebase</p>
+      </div>
+    </div>
+
+    <!-- Analytics / Total Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+        <div>
+          <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Expenses</p>
+          <h3 id="total-count" class="text-3xl font-extrabold text-slate-800 mt-1">0</h3>
+        </div>
+        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xl">
+          <i class="fa-solid fa-receipt"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+        <div>
+          <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Spent</p>
+          <h3 id="total-amount" class="text-3xl font-extrabold text-emerald-600 mt-1">$0.00</h3>
+        </div>
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl">
+          <i class="fa-solid fa-sack-dollar"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expense Entry Form -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-plus-circle text-indigo-600"></i> Add New Expense
+      </h2>
+      <form id="expense-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Expense Title</label>
+          <input type="text" id="title" required placeholder="e.g. Grocery Shop" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Amount ($)</label>
+          <input type="number" step="0.01" id="amount" required placeholder="0.00" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+          <select id="category" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm outline-none bg-white">
+            <option value="Food">Food</option>
+            <option value="Travel">Travel</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Bills">Bills</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Date</label>
+          <input type="date" id="date" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm outline-none">
+        </div>
+        <div class="sm:col-span-2 lg:col-span-4 mt-2">
+          <button type="submit" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition shadow">
+            Add Expense
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Expense Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+        <h2 class="font-bold text-slate-800">Expense History</h2>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b bg-slate-100 text-xs text-slate-500 uppercase font-semibold">
+              <th class="p-3">Title</th>
+              <th class="p-3">Category</th>
+              <th class="p-3">Date</th>
+              <th class="p-3 text-right">Amount</th>
+              <th class="p-3 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="expense-list" class="divide-y divide-slate-100 text-sm">
+            <tr>
+              <td colspan="5" class="p-6 text-center text-slate-400">Loading expenses from Firebase...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // YOUR FIREBASE CONFIGURATION ADDED HERE
+    const firebaseConfig = {
+      apiKey: "AIzaSyAfBxtFTkr_TbgyRq0edc3zvi9YNlNahbg",
+      authDomain: "expense-tracker-app-c152f.firebaseapp.com",
+      projectId: "expense-tracker-app-c152f",
+      storageBucket: "expense-tracker-app-c152f.firebasestorage.app",
+      messagingSenderId: "1054229243127",
+      appId: "1:1054229243127:web:176e61c9c85b74fb6cdff2",
+      measurementId: "G-5D8T756TCW"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // DOM Elements
+    const form = document.getElementById('expense-form');
+    const expenseList = document.getElementById('expense-list');
+    const totalCountEl = document.getElementById('total-count');
+    const totalAmountEl = document.getElementById('total-amount');
+
+    // Default Date set
+    document.getElementById('date').valueAsDate = new Date();
+
+    // Real-time Fetch from Firestore
+    db.collection("expenses").orderBy("date", "desc").onSnapshot((snapshot) => {
+      expenseList.innerHTML = '';
+      let totalAmount = 0;
+      let count = snapshot.docs.length;
+
+      if (count === 0) {
+        expenseList.innerHTML = `
+          <tr>
+            <td colspan="5" class="p-6 text-center text-slate-400">No expenses recorded yet. Add one above!</td>
+          </tr>
+        `;
+      } else {
+        snapshot.docs.forEach((doc) => {
+          const item = doc.data();
+          const id = doc.id;
+          totalAmount += parseFloat(item.amount || 0);
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition';
+          tr.innerHTML = `
+            <td class="p-3 font-medium text-slate-800">${item.title}</td>
+            <td class="p-3"><span class="bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full font-semibold">${item.category}</span></td>
+            <td class="p-3 text-slate-500">${item.date}</td>
+            <td class="p-3 text-right font-bold text-slate-700">$${parseFloat(item.amount).toFixed(2)}</td>
+            <td class="p-3 text-center">
+              <button onclick="deleteExpense('${id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          `;
+          expenseList.appendChild(tr);
+        });
+      }
+
+      totalCountEl.innerText = count;
+      totalAmountEl.innerText = `$${totalAmount.toFixed(2)}`;
+    }, (error) => {
+      console.error("Error reading database:", error);
+      expenseList.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">Database setup pending. Please create Firestore DB in test mode.</td></tr>`;
+    });
+
+    // Add Expense to Firestore
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const newExpense = {
+        title: document.getElementById('title').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        category: document.getElementById('category').value,
+        date: document.getElementById('date').value,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      db.collection("expenses").add(newExpense)
+        .then(() => {
+          form.reset();
+          document.getElementById('date').valueAsDate = new Date();
+        })
+        .catch((error) => {
+          alert("Error adding expense: " + error.message);
+        });
+    });
+
+    // Delete Expense from Firestore
+    function deleteExpense(id) {
+      if (confirm("Are you sure you want to delete this expense?")) {
+        db.collection("expenses").doc(id).delete();
+      }
+    }
+  </script>
+</body>
+</html>
